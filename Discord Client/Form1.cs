@@ -162,26 +162,38 @@ namespace Discord_Client
 
         private async void label4_Click(object sender, EventArgs e)
         {
-            WebView2 p = new WebView2();
-            await p.EnsureCoreWebView2Async();
-
             var env = await CoreWebView2Environment.CreateAsync(
-                userDataFolder: null
+                userDataFolder: Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MyApp",
+                    Guid.NewGuid().ToString()
+                )
             );
+            var p = new WebView2();
+            await p.EnsureCoreWebView2Async(env);
+
             p.CoreWebView2.Navigate("https://discord.com/channels/@me");
             this.Controls.Add(p);
         }
         private async void label4_Click_1(object sender, EventArgs e)
         {
-            this.w.Dispose();
+            var env = await CoreWebView2Environment.CreateAsync(
+                userDataFolder: Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MyApp",
+                    Guid.NewGuid().ToString()
+                )
+            );
+
+            this.w?.Dispose();
             this.w = new WebView2();
-            this.Controls.Add(this.w);
             this.w.Location = new Point(0, panel1.Height);
             this.w.Size = new Size(this.Width, this.Height - panel1.Height);
-            var env = await CoreWebView2Environment.CreateAsync();
-            var options = env.CreateCoreWebView2ControllerOptions();
-            options.IsInPrivateModeEnabled = true;
-            await this.w.EnsureCoreWebView2Async(env, options);
+
+            this.Controls.Add(this.w);
+
+            await this.w.EnsureCoreWebView2Async(env);
+
             this.w.CoreWebView2.Navigate("https://discord.com/channels/@me");
         }
 
