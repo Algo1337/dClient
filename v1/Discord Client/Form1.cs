@@ -8,8 +8,11 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Automation;
 using System.Windows.Forms;
 
 namespace Discord_Client
@@ -21,7 +24,13 @@ namespace Discord_Client
         public static int TogMove;
         public static int MValX;
         public static int MValY;
+        TextBox search = new TextBox();
         WebView2 w = new WebView2();
+        Label results = new Label();
+
+        Label rdr = new Label();
+
+        public FormRecorder recorder;
 
         private const int HTLEFT = 10;
         private const int HTRIGHT = 11;
@@ -33,6 +42,14 @@ namespace Discord_Client
         private const int HTBOTTOMRIGHT = 17;
 
         private const int resizeBorder = 8; // thickness in pixels
+
+        [DllImport("user32.dll")]
+        static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo);
+
+        const int MOUSEEVENTF_LEFTDOWN = 0x02;
+        const int MOUSEEVENTF_LEFTUP = 0x04;
+        const int RIGHT_MOUSEEVENTF_RIGHTDOWN = 0x08;
+        const int RIGHT_MOUSEEVENTF_RIGHTUP = 0x10;
         public Form1()
         {
             InitializeComponent();
@@ -50,9 +67,50 @@ namespace Discord_Client
             this.tools.Size = new Size(200, this.Height - panel1.Height);
             this.tools.BackColor = Color.Black;
 
+            Panel b = new Panel();
+            Label s = new Label();
+            TextBox t = this.search;
+            Label title = new Label();
+            b.Cursor = Cursors.Hand;
+            this.tools.Controls.Add(title);
+            title.Text = "Spam Report A User Visible\r\nOn Screen";
+
+            this.results.Location = new Point(5, 120);
+            this.results.Text = "Report Count: N/A";
+            this.results.Font = new Font("Ariel", 10);
+            this.results.ForeColor = Color.White;
+            this.results.Size = new Size(this.tools.Size.Width - 10, 20);
+            this.tools.Controls.Add(this.results);
+
+            b.Click += get_position;
+            s.Click += get_position;
+
+            title.TextAlign = ContentAlignment.MiddleCenter;
+            title.Font = new Font("Ariel", 10);
+            title.Location = new Point(5, 10);
+            title.Size = new Size(this.tools.Size.Width, 40);
+            title.ForeColor = Color.White; 
+
+            t.Location = new Point(5, 55);
+            t.Size = new Size(this.tools.Size.Width - 10, 50);
+            this.tools.Controls.Add(t);
+            t.BorderStyle = BorderStyle.None;
+            t.Font = new Font("Ariel", 12);
+
+            b.Location = new Point(5, 80);
+            b.Size = new Size(this.tools.Size.Width - 10, 30);
+            s.Text = "Report Spam";
+            b.Controls.Add(s);
+            s.TextAlign = ContentAlignment.MiddleCenter;
+            s.Dock = DockStyle.Fill;
+            this.tools.Controls.Add(b);
+            b.BackColor = Color.Gray;
+
+
+
             setup_browser();
             _old = this.Region;
-            this.round_corners(new Control[] { this });
+            this.round_corners(new Control[] { this , b, t});
 
             panel1.MouseDown += panel1_MouseDown;
             panel1.MouseMove += panel1_MouseMove;
@@ -213,6 +271,79 @@ namespace Discord_Client
                 this.w.Size = new Size(this.Width, this.Height - this.panel1.Height);
                 this.tools.Visible = false;
             }
+        }
+
+        public Point? find_text(string query)
+        {
+            var root = AutomationElement.RootElement;
+            var condition = new PropertyCondition(AutomationElement.NameProperty, query);
+
+            var element = root.FindFirst(TreeScope.Descendants, condition);
+            if (element != null)
+            {
+                var rect = element.Current.BoundingRectangle;
+                int centerX = (int)(rect.X + rect.Width / 2);
+                int centerY = (int)(rect.Y + rect.Height / 2);
+
+                return new Point(centerX, centerY);
+
+            }
+
+            return null;
+        }
+
+        private async void get_position(object sender, EventArgs e)
+        {
+            string[] queries = new string[]
+            {
+                this.search.Text,
+                "Report Message",
+                "Harmful misinformation or glorifying violence",
+                "Spreading misinformation or conspiracy theories",
+                "They are saying bad things about me or someone I know",
+                "Submit Report",
+                "Done"
+            };
+
+            for (int c = 0; c < 5; c++)
+            {
+                int i = 0;
+                foreach (string s in queries)
+                {
+                    Point? p = find_text(s);
+                    if (p == null)
+                    {
+                        break;
+                    }
+
+                    System.Windows.Forms.Cursor.Position = new System.Drawing.Point(((Point)p).X, ((Point)p).Y);
+                    this.w.Focus();
+                    await this.w.CoreWebView2.ExecuteScriptAsync("window.focus();");
+                    await Task.Delay(500);
+
+                    if (i == 0)
+                    {
+                        mouse_event(RIGHT_MOUSEEVENTF_RIGHTDOWN, ((Point)p).X + 1, 0, 0, 0);
+                        mouse_event(RIGHT_MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
+                    }
+                    else
+                    {
+                        mouse_event(MOUSEEVENTF_LEFTDOWN, ((Point)p).X + 1, 0, 0, 0);
+                        mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+                    }
+
+                    await Task.Delay(500);
+
+                    i++;
+                }
+
+                this.results.Text = $"Report Count: {c}";
+            }
+        }
+
+        private void button1_Click_1(object sender, EventArgs e)
+        {
+
         }
     }
 }
